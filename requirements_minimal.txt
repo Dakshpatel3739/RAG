@@ -1,0 +1,25 @@
+# Core - Most Important
+openai==1.7.2
+google-generativeai==0.7.2
+sentence-transformers==2.2.2
+chromadb==0.4.22
+fastapi==0.109.0
+uvicorn==0.27.0
+
+# PDF Processing
+pypdf2==3.0.1
+
+# Configuration
+python-dotenv==1.0.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# Logging
+loguru==0.7.2
+
+# Text Processing
+tiktoken==0.5.2
+
+# Utilities
+python-multipart==0.0.6
+numpy

@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RAG Local UI</title>
+    <style>
+      :root {
+        --ink: #1d1a16;
+        --muted: #5f564c;
+        --paper: #f6efe6;
+        --card: #fff8f0;
+        --accent: #d65a31;
+        --accent-2: #2a6f97;
+        --shadow: rgba(31, 24, 18, 0.12);
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        color: var(--ink);
+        font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+        background:
+          radial-gradient(circle at 12% 12%, #f4d7b2 0, transparent 45%),
+          radial-gradient(circle at 88% 8%, #f0c9b6 0, transparent 40%),
+          radial-gradient(circle at 20% 90%, #d6e7f0 0, transparent 45%),
+          linear-gradient(180deg, #f9f4ed, #efe3d7);
+        min-height: 100vh;
+      }
+
+      .page {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 32px 20px 64px;
+        animation: rise 0.6s ease;
+      }
+
+      .hero {
+        display: grid;
+        gap: 10px;
+        padding: 18px 20px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid #e7d7c6;
+        box-shadow: 0 20px 50px var(--shadow);
+      }
+
+      .badge {
+        align-self: start;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        font-size: 11px;
+        padding: 6px 12px;
+        background: var(--ink);
+        color: #f6efe6;
+        border-radius: 999px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(30px, 4vw, 54px);
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+      }
+
+      .subtitle {
+        margin: 0;
+        color: var(--muted);
+        font-size: 18px;
+        max-width: 720px;
+      }
+
+      .grid {
+        margin-top: 22px;
+        display: grid;
+        gap: 18px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .panel {
+        background: var(--card);
+        border: 1px solid #e4d3c1;
+        border-radius: 18px;
+        padding: 20px;
+        box-shadow: 0 16px 40px var(--shadow);
+      }
+
+      .panel h2 {
+        margin: 0 0 10px;
+        font-size: 22px;
+      }
+
+      label {
+        display: block;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-size: 11px;
+        margin: 14px 0 6px;
+        color: var(--muted);
+      }
+
+      input[type="text"],
+      input[type="number"],
+      textarea {
+        width: 100%;
+        border: 1px solid #cbb9a8;
+        background: #fff;
+        color: var(--ink);
+        padding: 12px 14px;
+        border-radius: 12px;
+        font-size: 16px;
+        font-family: inherit;
+      }
+
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+
+      .row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .row > * { flex: 1; }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 16px;
+        flex-wrap: wrap;
+      }
+
+      button {
+        border: none;
+        padding: 12px 18px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 14px;
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        background: var(--accent);
+        color: #fff;
+        box-shadow: 0 12px 25px rgba(214, 90, 49, 0.3);
+      }
+
+      button.secondary {
+        background: var(--ink);
+        box-shadow: 0 12px 25px rgba(29, 26, 22, 0.2);
+      }
+
+      button.ghost {
+        background: transparent;
+        color: var(--ink);
+        border: 1px dashed #cbb9a8;
+        box-shadow: none;
+      }
+
+      button:hover { transform: translateY(-1px); }
+
+      .status {
+        margin-top: 12px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid #d8c6b7;
+        background: #fff;
+        font-size: 14px;
+      }
+
+      .status[data-tone="ok"] {
+        border-color: #4c8b5f;
+        color: #2f6b3f;
+      }
+
+      .status[data-tone="warn"] {
+        border-color: #c98e2b;
+        color: #8a5c14;
+      }
+
+      .status[data-tone="error"] {
+        border-color: #c75151;
+        color: #8f2f2f;
+      }
+
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .chip {
+        background: #f0dfcd;
+        border: 1px dashed #cbb9a8;
+        color: #3d3026;
+        font-size: 12px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        cursor: pointer;
+      }
+
+      .results {
+        margin-top: 14px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .result-card {
+        background: #fff;
+        border: 1px solid #e4d3c1;
+        border-radius: 14px;
+        padding: 14px;
+        box-shadow: 0 10px 20px var(--shadow);
+        animation: fadeUp 0.35s ease both;
+      }
+
+      .result-meta {
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      .result-text {
+        margin-top: 8px;
+        font-size: 15px;
+        line-height: 1.55;
+      }
+
+      .empty {
+        padding: 12px;
+        border: 1px dashed #cbb9a8;
+        border-radius: 12px;
+        background: #fff;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      footer {
+        margin-top: 22px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      @keyframes rise {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      @media (max-width: 920px) {
+        .grid { grid-template-columns: 1fr; }
+        .row { flex-direction: column; align-items: stretch; }
+        button { width: 100%; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div class="badge">Local Host UI</div>
+        <h1>RAG Retrieval Console</h1>
+        <p class="subtitle">Upload PDFs, ingest them into the vector store, then retrieve the most relevant chunks without any LLM calls.</p>
+      </section>
+
+      <section class="grid">
+        <div class="panel">
+          <h2>Ingest PDFs</h2>
+          <form id="ingest-form">
+            <label for="pdf-files">PDF files</label>
+            <input id="pdf-files" type="file" accept=".pdf" multiple>
+            <div class="actions">
+              <button type="submit">Upload and ingest</button>
+              <button type="button" class="ghost" id="clear-files">Clear</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="panel">
+          <h2>Ask without LLM</h2>
+          <form id="ask-form">
+            <label for="question">Question</label>
+            <textarea id="question" placeholder="Type a question about your PDF..."></textarea>
+            <div class="row">
+              <div>
+                <label for="top-k">Top K</label>
+                <input id="top-k" type="number" min="1" max="10" value="3">
+              </div>
+              <div>
+                <label for="hybrid">Hybrid search</label>
+                <div class="row">
+                  <input id="hybrid" type="checkbox">
+                  <span>Use keyword + semantic mix</span>
+                </div>
+              </div>
+            </div>
+            <div class="actions">
+              <button type="submit">Retrieve chunks</button>
+              <button type="button" class="secondary" id="clear-results">Clear results</button>
+            </div>
+          </form>
+          <div class="chips">
+            <button class="chip" type="button" data-question="What is this document about?">Document summary</button>
+            <button class="chip" type="button" data-question="Where is global fractal dimension mentioned?">Phrase location</button>
+            <button class="chip" type="button" data-question="List the main topics discussed.">Main topics</button>
+          </div>
+          <div id="results" class="results">
+            <div class="empty">Results will appear here after retrieval.</div>
+          </div>
+        </div>
+      </section>
+
+      <div id="status" class="status" role="status" aria-live="polite">Idle.</div>
+      <footer>API endpoints used: /ingest/upload and /retrieve. This UI does not call any LLM.</footer>
+    </main>
+
+    <script>
+      const statusEl = document.getElementById("status");
+      const resultsEl = document.getElementById("results");
+      const questionEl = document.getElementById("question");
+
+      function setStatus(message, tone) {
+        statusEl.textContent = message;
+        statusEl.dataset.tone = tone || "info";
+      }
+
+      function truncate(text, maxLen) {
+        if (!text) return "";
+        if (text.length <= maxLen) return text;
+        return text.slice(0, maxLen) + "...";
+      }
+
+      function renderResults(chunks) {
+        resultsEl.innerHTML = "";
+        if (!chunks || chunks.length === 0) {
+          resultsEl.innerHTML = '<div class="empty">No chunks returned.</div>';
+          return;
+        }
+        chunks.forEach((chunk, index) => {
+          const card = document.createElement("div");
+          card.className = "result-card";
+          card.style.animationDelay = (index * 80) + "ms";
+          const meta = chunk.metadata || {};
+          const filename = meta.filename || "unknown";
+          const score = (chunk.score ?? 0).toFixed(2);
+          card.innerHTML = `
+            <div class="result-meta">Result ${index + 1} | ${filename} | score ${score}</div>
+            <div class="result-text"></div>
+          `;
+          card.querySelector(".result-text").textContent = truncate(chunk.text, 700);
+          resultsEl.appendChild(card);
+        });
+      }
+
+      document.getElementById("ingest-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const fileInput = document.getElementById("pdf-files");
+        if (!fileInput.files.length) {
+          setStatus("Select at least one PDF to ingest.", "warn");
+          return;
+        }
+
+        const formData = new FormData();
+        for (const file of fileInput.files) {
+          formData.append("files", file);
+        }
+
+        setStatus("Uploading and ingesting PDFs...", "info");
+        try {
+          const response = await fetch("/ingest/upload", {
+            method: "POST",
+            body: formData
+          });
+          if (!response.ok) {
+            const text = await response.text();
+            setStatus("Ingestion failed: " + text, "error");
+            return;
+          }
+          const data = await response.json();
+          setStatus(
+            "Ingested " + data.documents_processed +
+            " document(s) and " + data.chunks_created +
+            " chunks.",
+            "ok"
+          );
+        } catch (error) {
+          setStatus("Ingestion error: " + error, "error");
+        }
+      });
+
+      document.getElementById("ask-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const question = questionEl.value.trim();
+        if (!question) {
+          setStatus("Type a question first.", "warn");
+          return;
+        }
+        const topK = parseInt(document.getElementById("top-k").value, 10);
+        const useHybrid = document.getElementById("hybrid").checked;
+
+        setStatus("Retrieving chunks...", "info");
+        try {
+          const response = await fetch("/retrieve", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              question,
+              top_k: Number.isFinite(topK) ? topK : null,
+              use_hybrid_search: useHybrid
+            })
+          });
+          if (!response.ok) {
+            const text = await response.text();
+            setStatus("Retrieve failed: " + text, "error");
+            return;
+          }
+          const data = await response.json();
+          renderResults(data.chunks || []);
+          setStatus("Retrieved " + (data.total || 0) + " chunks.", "ok");
+        } catch (error) {
+          setStatus("Retrieve error: " + error, "error");
+        }
+      });
+
+      document.getElementById("clear-files").addEventListener("click", () => {
+        document.getElementById("pdf-files").value = "";
+        setStatus("File selection cleared.", "info");
+      });
+
+      document.getElementById("clear-results").addEventListener("click", () => {
+        renderResults([]);
+        setStatus("Results cleared.", "info");
+      });
+
+      document.querySelectorAll(".chip").forEach((chip) => {
+        chip.addEventListener("click", () => {
+          questionEl.value = chip.dataset.question || "";
+          questionEl.focus();
+        });
+      });
+    </script>
+  </body>
+</html>

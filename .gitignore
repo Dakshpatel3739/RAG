@@ -1,0 +1,31 @@
+# Environment files
+.env*
+!.env.example
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Test artifacts
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Logs
+logs/
+*.log
+
+# Vector store artifacts
+data/vector_db/
+data/**/*.sqlite3
+data/**/*.bin
+
+# OS files
+.DS_Store
