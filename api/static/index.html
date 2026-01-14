@@ -282,6 +282,8 @@
         <div class="panel">
           <h2>Ingest PDFs</h2>
           <form id="ingest-form">
+            <label for="api-key">API key (optional)</label>
+            <input id="api-key" type="password" placeholder="X-API-Key header">
             <label for="pdf-files">PDF files</label>
             <input id="pdf-files" type="file" accept=".pdf" multiple>
             <label for="reset-store">Vector store</label>
@@ -354,6 +356,7 @@
       const statusEl = document.getElementById("status");
       const resultsEl = document.getElementById("results");
       const questionEl = document.getElementById("question");
+      const apiKeyEl = document.getElementById("api-key");
 
       function setStatus(message, tone) {
         statusEl.textContent = message;
@@ -387,6 +390,24 @@
           resultsEl.appendChild(card);
         });
       }
+
+      function getApiKey() {
+        return (apiKeyEl.value || "").trim();
+      }
+
+      function buildHeaders(baseHeaders) {
+        const headers = Object.assign({}, baseHeaders || {});
+        const apiKey = getApiKey();
+        if (apiKey) {
+          headers["X-API-Key"] = apiKey;
+        }
+        return headers;
+      }
+
+      apiKeyEl.value = localStorage.getItem("rag-api-key") || "";
+      apiKeyEl.addEventListener("input", () => {
+        localStorage.setItem("rag-api-key", apiKeyEl.value);
+      });
 
       function renderAnswer(data) {
         resultsEl.innerHTML = "";
@@ -445,7 +466,10 @@
         if (resetStore) {
           setStatus("Resetting vector store...", "info");
           try {
-            const resetResponse = await fetch("/reset", { method: "POST" });
+            const resetResponse = await fetch("/reset", {
+              method: "POST",
+              headers: buildHeaders()
+            });
             if (!resetResponse.ok) {
               const text = await resetResponse.text();
               setStatus("Reset failed: " + text, "error");
@@ -466,6 +490,7 @@
         try {
           const response = await fetch("/ingest/upload", {
             method: "POST",
+            headers: buildHeaders(),
             body: formData
           });
           if (!response.ok) {
@@ -502,7 +527,7 @@
             setStatus("Generating answer...", "info");
             const response = await fetch("/query", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: buildHeaders({ "Content-Type": "application/json" }),
               body: JSON.stringify({
                 question,
                 top_k: Number.isFinite(topK) ? topK : null,
@@ -522,7 +547,7 @@
             setStatus("Retrieving chunks...", "info");
             const response = await fetch("/retrieve", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: buildHeaders({ "Content-Type": "application/json" }),
               body: JSON.stringify({
                 question,
                 top_k: Number.isFinite(topK) ? topK : null,

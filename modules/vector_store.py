@@ -132,13 +132,21 @@ class VectorStore:
                 if None in embeddings:
                     raise ValueError("Chunks must contain embeddings or embeddings must be provided")
             
-            # Add to collection
-            self.collection.add(
-                ids=ids,
-                embeddings=embeddings,
-                documents=documents,
-                metadatas=metadatas
-            )
+            # Add to collection (upsert to avoid duplicate ID errors)
+            if hasattr(self.collection, "upsert"):
+                self.collection.upsert(
+                    ids=ids,
+                    embeddings=embeddings,
+                    documents=documents,
+                    metadatas=metadatas
+                )
+            else:
+                self.collection.add(
+                    ids=ids,
+                    embeddings=embeddings,
+                    documents=documents,
+                    metadatas=metadatas
+                )
             
             log.info(f"Successfully added {len(chunks)} chunks to ChromaDB")
             return True

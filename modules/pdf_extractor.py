@@ -2,6 +2,8 @@
 PDF text extraction module
 """
 import os
+import hashlib
+import io
 from typing import List, Dict
 from pathlib import Path
 import PyPDF2
@@ -46,8 +48,11 @@ class PDFExtractor:
             }
             
             with open(pdf_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
+                content = file.read()
+                file_hash = hashlib.sha256(content).hexdigest()
+                pdf_reader = PyPDF2.PdfReader(io.BytesIO(content))
                 metadata["num_pages"] = len(pdf_reader.pages)
+                metadata["file_hash"] = file_hash
                 
                 for page_num, page in enumerate(pdf_reader.pages, 1):
                     try:

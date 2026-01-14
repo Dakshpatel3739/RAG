@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = None
     GEMINI_API_KEY: Optional[str] = None
     PINECONE_API_KEY: Optional[str] = None
+    API_AUTH_TOKEN: Optional[str] = None
     
     # Model configurations
     EMBEDDING_MODEL: str = "text-embedding-ada-002"
@@ -48,7 +49,7 @@ class Settings(BaseSettings):
     CORS_ALLOW_ORIGINS: str = "*"
     CORS_ALLOW_METHODS: str = "*"
     CORS_ALLOW_HEADERS: str = "*"
-    CORS_ALLOW_CREDENTIALS: bool = True
+    CORS_ALLOW_CREDENTIALS: bool = False
     
     class Config:
         env_file = ".env"

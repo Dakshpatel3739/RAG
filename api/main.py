@@ -7,7 +7,7 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
+from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -29,6 +29,25 @@ def _parse_csv_setting(value: str) -> List[str]:
         return ["*"]
     return [item.strip() for item in value.split(",") if item.strip()]
 
+def _get_bearer_token(authorization: Optional[str]) -> Optional[str]:
+    if not authorization:
+        return None
+    parts = authorization.split()
+    if len(parts) == 2 and parts[0].lower() == "bearer":
+        return parts[1]
+    return None
+
+def require_api_key(
+    x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
+    authorization: Optional[str] = Header(default=None),
+):
+    expected = settings.API_AUTH_TOKEN
+    if not expected:
+        return
+    token = x_api_key or _get_bearer_token(authorization)
+    if not token or token != expected:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
 # Initialize FastAPI app
 app = FastAPI(
     title="RAG System API",
@@ -37,10 +56,13 @@ app = FastAPI(
 )
 
 # CORS middleware
+cors_origins = _parse_csv_setting(settings.CORS_ALLOW_ORIGINS)
+cors_allow_credentials = settings.CORS_ALLOW_CREDENTIALS and cors_origins != ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_parse_csv_setting(settings.CORS_ALLOW_ORIGINS),
-    allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
+    allow_origins=cors_origins,
+    allow_credentials=cors_allow_credentials,
     allow_methods=_parse_csv_setting(settings.CORS_ALLOW_METHODS),
     allow_headers=_parse_csv_setting(settings.CORS_ALLOW_HEADERS),
 )
@@ -143,7 +165,7 @@ async def health_check():
         log.error(f"Health check failed: {str(e)}")
         raise HTTPException(status_code=503, detail=str(e))
 
-@app.post("/ingest/upload", response_model=IngestionResponse)
+@app.post("/ingest/upload", response_model=IngestionResponse, dependencies=[Depends(require_api_key)])
 async def upload_and_ingest(
     files: List[UploadFile] = File(...),
     chunk_strategy: str = "recursive",
@@ -183,10 +205,12 @@ async def upload_and_ingest(
                 pass
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/query", response_model=QueryResponse)
+@app.post("/query", response_model=QueryResponse, dependencies=[Depends(require_api_key)])
 async def query(request: QueryRequest):
     """Query the RAG system"""
     try:
+        if rag_pipeline is None:
+            raise HTTPException(status_code=503, detail="RAG pipeline not initialized")
         result = rag_pipeline.query(
             question=request.question,
             top_k=request.top_k,
@@ -195,11 +219,13 @@ async def query(request: QueryRequest):
         )
         return QueryResponse(**result)
         
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         log.error(f"Error processing query: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/retrieve", response_model=RetrieveResponse)
+@app.post("/retrieve", response_model=RetrieveResponse, dependencies=[Depends(require_api_key)])
 async def retrieve(request: RetrieveRequest):
     """Retrieve relevant chunks without calling an LLM"""
     try:
@@ -226,7 +252,7 @@ async def retrieve(request: RetrieveRequest):
         log.error(f"Error retrieving chunks: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/stats", response_model=StatsResponse)
+@app.get("/stats", response_model=StatsResponse, dependencies=[Depends(require_api_key)])
 async def get_stats():
     """Get system statistics"""
     try:
@@ -237,7 +263,7 @@ async def get_stats():
         log.error(f"Error getting stats: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/reset")
+@app.post("/reset", dependencies=[Depends(require_api_key)])
 async def reset_database():
     """Reset the vector database"""
     try:

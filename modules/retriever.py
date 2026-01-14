@@ -174,6 +174,8 @@ class Retriever:
             
             # Simple keyword matching (in production, use BM25 or similar)
             query_terms = set(query.lower().split())
+            if not query_terms:
+                return semantic_results[:top_k or settings.TOP_K_RESULTS]
             
             for result in semantic_results:
                 text_terms = set(result["text"].lower().split())

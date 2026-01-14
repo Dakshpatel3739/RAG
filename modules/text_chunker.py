@@ -118,6 +118,12 @@ class TextChunker:
             )
         else:
             raise ValueError(f"Unknown chunking strategy: {self.strategy}")
+
+    def set_strategy(self, strategy: str) -> None:
+        """Update chunking strategy and reinitialize the splitter"""
+        if strategy != self.strategy:
+            self.strategy = strategy
+            self.splitter = self._initialize_splitter()
     
     def chunk_text(self, text: str, metadata: Optional[Dict] = None) -> List[Dict[str, any]]:
         """
@@ -139,8 +145,10 @@ class TextChunker:
             # Create chunk objects with metadata
             chunk_objects = []
             for i, chunk in enumerate(chunks):
+                file_hash = metadata.get("file_hash") if metadata else None
+                file_tag = file_hash[:8] if file_hash else (metadata.get("filename", "unknown") if metadata else "unknown")
                 chunk_obj = {
-                    "id": f"{metadata.get('filename', 'unknown')}_{i}" if metadata else f"chunk_{i}",
+                    "id": f"{metadata.get('filename', 'unknown')}_{file_tag}_{i}" if metadata else f"chunk_{i}",
                     "text": chunk,
                     "chunk_index": i,
                     "metadata": metadata or {}

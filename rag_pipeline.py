@@ -42,7 +42,7 @@ class RAGPipeline:
             collection_name=collection_name
         )
         self.retriever = Retriever(self.vector_store, self.embedding_generator)
-        self.llm_generator = LLMGenerator()
+        self.llm_generator = None
         
         log.info("RAG Pipeline initialized successfully")
     
@@ -73,7 +73,7 @@ class RAGPipeline:
             
             # Step 2: Chunk the text
             log.info("Step 2: Chunking text")
-            self.text_chunker.strategy = chunk_strategy
+            self.text_chunker.set_strategy(chunk_strategy)
             chunks = self.text_chunker.chunk_documents(extracted_docs)
             
             # Step 3: Generate embeddings
@@ -152,12 +152,14 @@ class RAGPipeline:
                     "answer": "I couldn't find relevant information to answer your question.",
                     "query": question,
                     "sources": [],
-                    "context_chunks_used": 0
+                    "context_chunks_used": 0,
+                    "model": self._default_llm_model()
                 }
             
             # Step 2: Generate answer
             log.info("Step 2: Generating answer with LLM")
-            result = self.llm_generator.generate_answer(
+            llm = self._get_llm_generator()
+            result = llm.generate_answer(
                 query=question,
                 context_chunks=relevant_chunks,
                 include_sources=include_sources
@@ -194,7 +196,8 @@ class RAGPipeline:
             relevant_chunks = self.retriever.retrieve(question, top_k)
             
             # Generate with history
-            result = self.llm_generator.generate_with_conversation_history(
+            llm = self._get_llm_generator()
+            result = llm.generate_with_conversation_history(
                 query=question,
                 context_chunks=relevant_chunks,
                 conversation_history=conversation_history
@@ -222,7 +225,8 @@ class RAGPipeline:
             relevant_chunks = self.retriever.retrieve(question, top_k)
             
             # Stream answer
-            for chunk in self.llm_generator.stream_answer(question, relevant_chunks):
+            llm = self._get_llm_generator()
+            for chunk in llm.stream_answer(question, relevant_chunks):
                 yield chunk
                 
         except Exception as e:
@@ -237,7 +241,7 @@ class RAGPipeline:
             return {
                 "vector_store": vector_stats,
                 "embedding_model": self.embedding_generator.model_name,
-                "llm_model": self.llm_generator.model,
+                "llm_model": self._default_llm_model(),
                 "chunk_size": self.text_chunker.chunk_size,
                 "chunk_overlap": self.text_chunker.chunk_overlap
             }
@@ -258,3 +262,15 @@ class RAGPipeline:
         except Exception as e:
             log.error(f"Error resetting database: {str(e)}")
             raise
+
+    def _get_llm_generator(self) -> LLMGenerator:
+        if self.llm_generator is None:
+            self.llm_generator = LLMGenerator()
+        return self.llm_generator
+
+    def _default_llm_model(self) -> str:
+        if self.llm_generator is not None:
+            return self.llm_generator.model
+        if settings.LLM_PROVIDER.lower() == "gemini":
+            return settings.GEMINI_LLM_MODEL
+        return settings.LLM_MODEL

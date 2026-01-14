@@ -5,6 +5,7 @@ Retrieval-augmented Q&A over PDF documents with a FastAPI service and a local ve
 ## How it works
 1. Ingest PDFs: extract text, split into chunks, generate embeddings, and store in Chroma.
 2. Query: embed the question, retrieve the most similar chunks, then the LLM answers with citations.
+3. Retrieve-only: skip the LLM and just return the best chunks.
 
 ## Local setup (Python)
 Prereqs: Python 3.11+ and `pip`.
@@ -34,6 +35,8 @@ You can use the simple UI or call the API directly.
 Open `http://localhost:8000/ui`, upload PDFs, then ask questions.
 
 ### API examples
+If you set `API_AUTH_TOKEN`, include `-H "X-API-Key: <token>"` in requests.
+
 Health check:
 ```bash
 curl http://localhost:8000/health
@@ -49,6 +52,13 @@ Query:
 curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
   -d '{"question":"What is this document about?","top_k":5,"include_sources":true}'
+```
+
+Retrieve-only (no LLM):
+```bash
+curl -X POST http://localhost:8000/retrieve \
+  -H "Content-Type: application/json" \
+  -d '{"question":"What is this document about?","top_k":5}'
 ```
 
 Reset the vector store:
@@ -75,8 +85,10 @@ Key settings:
 - Storage: `VECTOR_DB_PATH`, `COLLECTION_NAME`
 - Retrieval: `TOP_K_RESULTS`, `SIMILARITY_THRESHOLD`
 - CORS: `CORS_ALLOW_ORIGINS`, `CORS_ALLOW_METHODS`, `CORS_ALLOW_HEADERS`
+- Auth: `API_AUTH_TOKEN` (set this to require `X-API-Key` or `Authorization: Bearer`)
 
 Notes:
 - Vector data persists in `./data/vector_db`.
 - Logs are written to `./logs/rag_system.log`.
 - Do not commit `.env` to source control.
+- If you use local Chroma persistence, keep Uvicorn workers at 1 (default in Docker).
