@@ -24,7 +24,7 @@ Prereqs: Python 3.11+ and `pip`.
 3. Create a virtual environment and install dependencies:
    `python3 -m venv .venv`
    `source .venv/bin/activate`
-   `pip install -r requirements-prod.txt`
+   `pip install -r requirements.txt`
 4. Start the API:
    `uvicorn api.main:app --host 0.0.0.0 --port 8000`
 

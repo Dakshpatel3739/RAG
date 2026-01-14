@@ -1,20 +1,39 @@
-pypdf2==3.0.1
-langchain==0.1.0
-langchain-community==0.0.13
-langchain-openai==0.0.5
+# Consolidated requirements (runtime + optional/dev)
+
+# Core AI + vector store
 openai==1.7.2
+httpx==0.27.0
 google-generativeai==0.7.2
 chromadb==0.4.22
 sentence-transformers==2.2.2
-tiktoken==0.5.2
 faiss-cpu==1.7.4
-nltk==3.8.1
-python-dotenv==1.0.0
-pydantic==2.5.3
-pydantic-settings==2.1.0
+
+# RAG framework extras (not required by code, kept for compatibility)
+langchain==0.1.0
+langchain-community==0.0.13
+langchain-openai==0.0.5
+
+# API + server
 fastapi==0.109.0
 uvicorn==0.27.0
 python-multipart==0.0.6
+
+# PDF processing
+pypdf2==3.0.1
+
+# Config + logging
+python-dotenv==1.0.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
 loguru==0.7.2
+
+# Text utilities
+nltk==3.8.1
+tiktoken==0.5.2
+
+# Math
+numpy
+
+# Testing
 pytest==7.4.3
 pytest-asyncio==0.21.1
