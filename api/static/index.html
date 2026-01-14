@@ -229,6 +229,15 @@
         line-height: 1.55;
       }
 
+      .result-text ul {
+        margin: 8px 0 0;
+        padding-left: 18px;
+      }
+
+      .result-text li {
+        margin: 4px 0;
+      }
+
       .empty {
         padding: 12px;
         border: 1px dashed #cbb9a8;
@@ -266,7 +275,7 @@
       <section class="hero">
         <div class="badge">Local Host UI</div>
         <h1>RAG Retrieval Console</h1>
-        <p class="subtitle">Upload PDFs, ingest them into the vector store, then retrieve the most relevant chunks without any LLM calls.</p>
+        <p class="subtitle">Upload PDFs, ingest them into the vector store, then ask questions with an LLM answer or retrieval-only mode.</p>
       </section>
 
       <section class="grid">
@@ -275,6 +284,11 @@
           <form id="ingest-form">
             <label for="pdf-files">PDF files</label>
             <input id="pdf-files" type="file" accept=".pdf" multiple>
+            <label for="reset-store">Vector store</label>
+            <div class="row">
+              <input id="reset-store" type="checkbox" checked>
+              <span>Clear existing data before ingest</span>
+            </div>
             <div class="actions">
               <button type="submit">Upload and ingest</button>
               <button type="button" class="ghost" id="clear-files">Clear</button>
@@ -283,7 +297,7 @@
         </div>
 
         <div class="panel">
-          <h2>Ask without LLM</h2>
+          <h2>Ask with LLM</h2>
           <form id="ask-form">
             <label for="question">Question</label>
             <textarea id="question" placeholder="Type a question about your PDF..."></textarea>
@@ -300,8 +314,24 @@
                 </div>
               </div>
             </div>
+            <div class="row">
+              <div>
+                <label for="use-llm">LLM answer</label>
+                <div class="row">
+                  <input id="use-llm" type="checkbox" checked>
+                  <span>Generate a final answer (GPT/Gemini)</span>
+                </div>
+              </div>
+              <div>
+                <label for="include-sources">Include sources</label>
+                <div class="row">
+                  <input id="include-sources" type="checkbox" checked>
+                  <span>Show citations</span>
+                </div>
+              </div>
+            </div>
             <div class="actions">
-              <button type="submit">Retrieve chunks</button>
+              <button id="ask-submit" type="submit">Get answer</button>
               <button type="button" class="secondary" id="clear-results">Clear results</button>
             </div>
           </form>
@@ -317,7 +347,7 @@
       </section>
 
       <div id="status" class="status" role="status" aria-live="polite">Idle.</div>
-      <footer>API endpoints used: /ingest/upload and /retrieve. This UI does not call any LLM.</footer>
+      <footer>API endpoints used: /ingest/upload and /query or /retrieve.</footer>
     </main>
 
     <script>
@@ -358,12 +388,73 @@
         });
       }
 
+      function renderAnswer(data) {
+        resultsEl.innerHTML = "";
+        if (!data || !data.answer) {
+          resultsEl.innerHTML = '<div class="empty">No answer returned.</div>';
+          return;
+        }
+        const card = document.createElement("div");
+        card.className = "result-card";
+        const model = data.model || "unknown";
+        const used = data.context_chunks_used ?? 0;
+        card.innerHTML = `
+          <div class="result-meta">Answer | model ${model} | chunks used ${used}</div>
+          <div class="result-text"></div>
+        `;
+        card.querySelector(".result-text").textContent = data.answer;
+        resultsEl.appendChild(card);
+
+        if (data.sources && data.sources.length) {
+          const sourcesCard = document.createElement("div");
+          sourcesCard.className = "result-card";
+          const listWrapper = document.createElement("div");
+          listWrapper.className = "result-text";
+          const list = document.createElement("ul");
+          data.sources.forEach((source) => {
+            const filename = source.filename || "unknown";
+            const score = (source.relevance_score ?? 0).toFixed(2);
+            const li = document.createElement("li");
+            li.textContent = `${filename} (score ${score})`;
+            list.appendChild(li);
+          });
+          listWrapper.appendChild(list);
+          sourcesCard.innerHTML = `<div class="result-meta">Sources</div>`;
+          sourcesCard.appendChild(listWrapper);
+          resultsEl.appendChild(sourcesCard);
+        }
+      }
+
+      const askButton = document.getElementById("ask-submit");
+      function updateAskButton() {
+        const useLlm = document.getElementById("use-llm").checked;
+        askButton.textContent = useLlm ? "Get answer" : "Retrieve chunks";
+      }
+      document.getElementById("use-llm").addEventListener("change", updateAskButton);
+      updateAskButton();
+
       document.getElementById("ingest-form").addEventListener("submit", async (event) => {
         event.preventDefault();
         const fileInput = document.getElementById("pdf-files");
         if (!fileInput.files.length) {
           setStatus("Select at least one PDF to ingest.", "warn");
           return;
+        }
+
+        const resetStore = document.getElementById("reset-store").checked;
+        if (resetStore) {
+          setStatus("Resetting vector store...", "info");
+          try {
+            const resetResponse = await fetch("/reset", { method: "POST" });
+            if (!resetResponse.ok) {
+              const text = await resetResponse.text();
+              setStatus("Reset failed: " + text, "error");
+              return;
+            }
+          } catch (error) {
+            setStatus("Reset error: " + error, "error");
+            return;
+          }
         }
 
         const formData = new FormData();
@@ -403,28 +494,52 @@
         }
         const topK = parseInt(document.getElementById("top-k").value, 10);
         const useHybrid = document.getElementById("hybrid").checked;
+        const useLlm = document.getElementById("use-llm").checked;
+        const includeSources = document.getElementById("include-sources").checked;
 
-        setStatus("Retrieving chunks...", "info");
         try {
-          const response = await fetch("/retrieve", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              question,
-              top_k: Number.isFinite(topK) ? topK : null,
-              use_hybrid_search: useHybrid
-            })
-          });
-          if (!response.ok) {
-            const text = await response.text();
-            setStatus("Retrieve failed: " + text, "error");
-            return;
+          if (useLlm) {
+            setStatus("Generating answer...", "info");
+            const response = await fetch("/query", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                question,
+                top_k: Number.isFinite(topK) ? topK : null,
+                include_sources: includeSources,
+                use_hybrid_search: useHybrid
+              })
+            });
+            if (!response.ok) {
+              const text = await response.text();
+              setStatus("Query failed: " + text, "error");
+              return;
+            }
+            const data = await response.json();
+            renderAnswer(data);
+            setStatus("Answer ready. Used " + (data.context_chunks_used || 0) + " chunks.", "ok");
+          } else {
+            setStatus("Retrieving chunks...", "info");
+            const response = await fetch("/retrieve", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                question,
+                top_k: Number.isFinite(topK) ? topK : null,
+                use_hybrid_search: useHybrid
+              })
+            });
+            if (!response.ok) {
+              const text = await response.text();
+              setStatus("Retrieve failed: " + text, "error");
+              return;
+            }
+            const data = await response.json();
+            renderResults(data.chunks || []);
+            setStatus("Retrieved " + (data.total || 0) + " chunks.", "ok");
           }
-          const data = await response.json();
-          renderResults(data.chunks || []);
-          setStatus("Retrieved " + (data.total || 0) + " chunks.", "ok");
         } catch (error) {
-          setStatus("Retrieve error: " + error, "error");
+          setStatus("Request error: " + error, "error");
         }
       });
 
