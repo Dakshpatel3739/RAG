@@ -42,6 +42,11 @@ Health check:
 curl http://localhost:8000/health
 ```
 
+Diagnostics:
+```bash
+curl http://localhost:8000/diagnostics
+```
+
 Ingest PDFs:
 ```bash
 curl -F "files=@/path/to/file.pdf" http://localhost:8000/ingest/upload
@@ -92,3 +97,14 @@ Notes:
 - Logs are written to `./logs/rag_system.log`.
 - Do not commit `.env` to source control.
 - If you use local Chroma persistence, keep Uvicorn workers at 1 (default in Docker).
+
+## Testing
+Run unit tests (no external API calls):
+```bash
+pytest -m "not integration"
+```
+
+Integration tests require API keys:
+```bash
+pytest -m "integration"
+```

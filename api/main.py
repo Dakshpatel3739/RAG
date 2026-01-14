@@ -3,6 +3,7 @@ FastAPI REST API for RAG system
 """
 import sys
 from pathlib import Path
+from datetime import datetime, timezone
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -55,6 +56,9 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Track app start time for diagnostics
+APP_STARTED_AT = datetime.now(timezone.utc)
+
 # CORS middleware
 cors_origins = _parse_csv_setting(settings.CORS_ALLOW_ORIGINS)
 cors_allow_credentials = settings.CORS_ALLOW_CREDENTIALS and cors_origins != ["*"]
@@ -74,6 +78,8 @@ rag_pipeline = None
 async def startup_event():
     """Initialize RAG pipeline on startup"""
     global rag_pipeline
+    global APP_STARTED_AT
+    APP_STARTED_AT = datetime.now(timezone.utc)
     log.info("Initializing RAG Pipeline...")
     try:
         rag_pipeline = RAGPipeline()
@@ -164,6 +170,37 @@ async def health_check():
     except Exception as e:
         log.error(f"Health check failed: {str(e)}")
         raise HTTPException(status_code=503, detail=str(e))
+
+@app.get("/diagnostics", dependencies=[Depends(require_api_key)])
+async def diagnostics():
+    """Basic diagnostics for monitoring (no secrets)"""
+    base = {
+        "status": "starting" if rag_pipeline is None else "ok",
+        "started_at": APP_STARTED_AT.isoformat(),
+        "uptime_seconds": int((datetime.now(timezone.utc) - APP_STARTED_AT).total_seconds()),
+        "providers": {
+            "embedding": settings.EMBEDDING_PROVIDER,
+            "llm": settings.LLM_PROVIDER
+        },
+        "auth_enabled": bool(settings.API_AUTH_TOKEN)
+    }
+    if rag_pipeline is None:
+        return base
+    try:
+        stats = rag_pipeline.get_stats()
+        base.update({
+            "vector_store": stats.get("vector_store"),
+            "embedding_model": stats.get("embedding_model"),
+            "llm_model": stats.get("llm_model"),
+            "chunk_size": stats.get("chunk_size"),
+            "chunk_overlap": stats.get("chunk_overlap")
+        })
+        return base
+    except Exception as e:
+        log.error(f"Diagnostics failed: {str(e)}")
+        base["status"] = "error"
+        base["error"] = str(e)
+        return base
 
 @app.post("/ingest/upload", response_model=IngestionResponse, dependencies=[Depends(require_api_key)])
 async def upload_and_ingest(
