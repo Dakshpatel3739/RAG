@@ -1,29 +1,82 @@
 # RAG System
 
-FastAPI API for ingestion and retrieval-augmented Q&A over PDF documents.
+Retrieval-augmented Q&A over PDF documents with a FastAPI service and a local vector database.
 
-## Quick start (local)
-1. Copy env file and set keys: `cp .env.example .env`
-2. Create a virtualenv and install deps:
-   `python3 -m venv .venv && source .venv/bin/activate`
+## How it works
+1. Ingest PDFs: extract text, split into chunks, generate embeddings, and store in Chroma.
+2. Query: embed the question, retrieve the most similar chunks, then the LLM answers with citations.
+
+## Local setup (Python)
+Prereqs: Python 3.11+ and `pip`.
+
+1. Create your env file:
+   `cp .env.example .env`
+2. Set your provider and API key in `.env`:
+   - OpenAI:
+     - `EMBEDDING_PROVIDER=openai`
+     - `LLM_PROVIDER=openai`
+     - `OPENAI_API_KEY=...`
+   - Gemini:
+     - `EMBEDDING_PROVIDER=gemini`
+     - `LLM_PROVIDER=gemini`
+     - `GEMINI_API_KEY=...`
+3. Create a virtual environment and install dependencies:
+   `python3 -m venv .venv`
+   `source .venv/bin/activate`
    `pip install -r requirements-prod.txt`
-3. Run the API:
+4. Start the API:
    `uvicorn api.main:app --host 0.0.0.0 --port 8000`
 
-Open `http://localhost:8000/ui` or use the API endpoints:
-- `POST /ingest/upload`
-- `POST /query`
-- `GET /health`
+## Use the system (local)
+You can use the simple UI or call the API directly.
 
-## Docker (production)
+### UI
+Open `http://localhost:8000/ui`, upload PDFs, then ask questions.
+
+### API examples
+Health check:
+```bash
+curl http://localhost:8000/health
+```
+
+Ingest PDFs:
+```bash
+curl -F "files=@/path/to/file.pdf" http://localhost:8000/ingest/upload
+```
+
+Query:
+```bash
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"question":"What is this document about?","top_k":5,"include_sources":true}'
+```
+
+Reset the vector store:
+```bash
+curl -X POST http://localhost:8000/reset
+```
+
+## Docker
 Build and run:
-- `docker build -t rag-system .`
-- `docker run --rm -p 8000:8000 --env-file .env -v $(pwd)/data:/app/data -v $(pwd)/logs:/app/logs rag-system`
+```bash
+docker build -t rag-system .
+docker run --rm -p 8000:8000 --env-file .env \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/logs:/app/logs \
+  rag-system
+```
 
 ## Configuration
 All settings are managed via environment variables. See `.env.example` for the full list.
 
-Production notes:
-- Set `CORS_ALLOW_ORIGINS` to a comma-separated list of allowed origins (not `*`).
-- Persist vector data by mounting `./data` into the container.
+Key settings:
+- Providers: `EMBEDDING_PROVIDER`, `LLM_PROVIDER`
+- Models: `EMBEDDING_MODEL`, `LLM_MODEL`, `GEMINI_EMBEDDING_MODEL`, `GEMINI_LLM_MODEL`
+- Storage: `VECTOR_DB_PATH`, `COLLECTION_NAME`
+- Retrieval: `TOP_K_RESULTS`, `SIMILARITY_THRESHOLD`
+- CORS: `CORS_ALLOW_ORIGINS`, `CORS_ALLOW_METHODS`, `CORS_ALLOW_HEADERS`
+
+Notes:
+- Vector data persists in `./data/vector_db`.
+- Logs are written to `./logs/rag_system.log`.
 - Do not commit `.env` to source control.
